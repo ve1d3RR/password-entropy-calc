@@ -1,86 +1,96 @@
-<!-- Наследуем дизайн из базового шаблона -->
 {% extends 'audit/base.html' %}
 
 {% block content %}
 <div class="row justify-content-center">
 
-    <!-- Левая колонка: Форма ввода -->
-    <div class="col-md-5">
-        <div class="card result-card mb-4">
+    <!-- Форма ввода -->
+    <div class="col-md-5 mb-4">
+        <div class="card result-card h-100">
             <div class="card-header bg-primary text-white">
                 <h5 class="mb-0">Настройки аудита</h5>
             </div>
             <div class="card-body">
                 <form method="POST">
                     {% csrf_token %}
-
-                    <!-- Выводим поля формы, которые мы описали в forms.py -->
-                    <div class="mb-3">
-                        {{ form.project.label_tag }}
-                        {{ form.project }}
-                    </div>
-
-                    <div class="mb-3">
-                        {{ form.hardware.label_tag }}
-                        {{ form.hardware }}
-                    </div>
-
-                    <div class="mb-3">
+                    <div class="mb-3">{{ form.project.label_tag }} {{ form.project }}</div>
+                    <div class="mb-3">{{ form.hardware.label_tag }} {{ form.hardware }}</div>
+                    <div class="mb-4">
                         {{ form.password.label_tag }}
                         {{ form.password }}
-                        <small class="text-muted">Пароль не сохраняется в базу данных. Отправка в API осуществляется хэшем.</small>
+                        <small class="text-muted">Отправка в API осуществляется хэшем (k-Anonymity).</small>
                     </div>
-
                     <button type="submit" class="btn btn-primary w-100">Запустить проверку</button>
                 </form>
             </div>
         </div>
     </div>
 
-    <!-- Правая колонка: Результаты (показываем только если нажали кнопку) -->
-    <div class="col-md-5">
+    <!-- Результаты и График -->
+    <div class="col-md-7 mb-4">
         {% if result %}
             <div class="card result-card">
                 <div class="card-header bg-dark text-white">
-                    <h5 class="mb-0">Отчет безопасности</h5>
+                    <h5 class="mb-0">Отчет безопасности и Прогноз</h5>
                 </div>
-                <ul class="list-group list-group-flush">
-
-                    <li class="list-group-item d-flex justify-content-between align-items-center">
-                        Длина пароля:
-                        <span class="badge bg-secondary rounded-pill">{{ result.length }} симв.</span>
-                    </li>
-
-                    <li class="list-group-item d-flex justify-content-between align-items-center">
-                        Энтропия (по Шеннону):
-                        <span class="badge bg-info rounded-pill">{{ result.entropy }} bit</span>
-                    </li>
-
-                    <li class="list-group-item">
-                        <p class="mb-1">Время перебора (Brute-Force):</p>
-                        <strong>{{ result.crack_time|floatformat:"0" }} секунд</strong>
-                    </li>
-
-                    <!-- РЕЗУЛЬТАТ ОТ АПИ (HIBP) -->
-                    <li class="list-group-item text-center p-3">
+                <div class="card-body row">
+                    <div class="col-sm-6 mb-3">
+                        <p class="mb-1 text-muted">Длина / Энтропия:</p>
+                        <h5>{{ result.length }} симв. / {{ result.entropy }} bit</h5>
+                    </div>
+                    <div class="col-sm-6 mb-3">
+                        <p class="mb-1 text-muted">Время перебора:</p>
+                        <h5>{{ result.crack_time|floatformat:"2" }} сек.</h5>
+                    </div>
+                    <div class="col-12 mb-3">
                         {% if result.is_pwned %}
-                            <div class="alert alert-danger mb-0">
-                                <strong>⚠️ КРИТИЧЕСКАЯ УЯЗВИМОСТЬ</strong><br>
-                                Пароль найден в глобальных утечках (Pwned API). Немедленно смените пароль!
-                            </div>
+                            <div class="alert alert-danger mb-0">⚠️ <strong>СКОМПРОМЕТИРОВАН!</strong> Найден в базе утечек.</div>
                         {% else %}
-                            <div class="alert alert-success mb-0">
-                                <strong>✅ БЕЗОПАСНО</strong><br>
-                                Пароль не фигурирует в известных базах утечек.
-                            </div>
+                            <div class="alert alert-success mb-0">✅ <strong>БЕЗОПАСНО.</strong> В базах утечек не найден.</div>
                         {% endif %}
-                    </li>
-                </ul>
+                    </div>
+
+                    <!-- Блок для графика -->
+                    <div class="col-12 mt-3">
+                        <h6 class="text-center text-muted">Прогноз времени взлома при увеличении длины пароля</h6>
+                        <canvas id="crackChart" height="100"></canvas>
+                    </div>
+                </div>
             </div>
+
+            <!-- Подключаем Chart.js -->
+            <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+            <script>
+                // Получаем данные из Python (views.py)
+                const ctx = document.getElementById('crackChart').getContext('2d');
+                const labels = {{ result.chart_labels|safe }};
+                const dataPoints = {{ result.chart_data|safe }};
+
+                new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            label: 'Время взлома (секунды)',
+                            data: dataPoints,
+                            borderColor: '#0d6efd',
+                            backgroundColor: 'rgba(13, 110, 253, 0.2)',
+                            borderWidth: 2,
+                            fill: true,
+                            tension: 0.3
+                        }]
+                    },
+                    options: {
+                        scales: {
+                            y: {
+                                type: 'logarithmic', // Логарифмическая шкала (т.к. время растет экспоненциально)
+                                title: { display: true, text: 'Секунды (Лог. шкала)'}
+                            }
+                        }
+                    }
+                });
+            </script>
         {% else %}
-            <div class="alert alert-secondary text-center">
-                Заполните форму слева для получения отчета.
-            </div>
+            <div class="alert alert-secondary text-center">Заполните форму слева для получения отчета и графика.</div>
         {% endif %}
     </div>
 

@@ -1,3 +1,5 @@
+import math
+import json
 from django.shortcuts import render
 from .forms import PasswordCheckForm
 from .models import PasswordAuditLog
@@ -8,24 +10,20 @@ def check_password_view(request):
     """Главная страница калькулятора"""
     result = None
 
-    # Если пользователь нажал кнопку "Проверить"
     if request.method == 'POST':
         form = PasswordCheckForm(request.POST)
 
-        # Django сам проверяет, чтобы не было хакерских инъекций (Валидация)
         if form.is_valid():
-            # 1. Достаем безопасные данные
             password = form.cleaned_data['password']
             project = form.cleaned_data['project']
             hardware = form.cleaned_data['hardware']
 
-            # 2. Вызываем наши функции из сервисного слоя (Математика + API)
             entropy = services.calculate_entropy(password)
-            crack_time = services.calculate_crack_time(entropy, hardware.hashrate_md5)  # Считаем для MD5
+            crack_time = services.calculate_crack_time(entropy, hardware.hashrate_md5)
             is_pwned = services.check_pwned_password(password)
 
-            # 3. Сохраняем отчет в БД. Обратите внимание: пароль сюда НЕ передается!
-            audit_log = PasswordAuditLog.objects.create(
+            # Сохраняем отчет в БД
+            PasswordAuditLog.objects.create(
                 project=project,
                 hardware=hardware,
                 password_length=len(password),
@@ -34,16 +32,33 @@ def check_password_view(request):
                 is_pwned=is_pwned
             )
 
-            # 4. Упаковываем результаты, чтобы показать их на экране
+            # === НОВЫЙ БЛОК: ГЕНЕРАЦИЯ ДАННЫХ ДЛЯ ГРАФИКА ===
+            chart_labels = []
+            chart_data = []
+            alphabet_size = services.get_alphabet_size(password)
+            current_len = len(password)
+
+            # Считаем, сколько займет взлом, если добавить к паролю еще от 0 до +4 символов
+            for i in range(5):
+                test_len = current_len + i
+                # Считаем тестовую энтропию
+                test_entropy = test_len * math.log2(alphabet_size) if alphabet_size > 0 else 0
+                # Считаем тестовое время
+                test_time = services.calculate_crack_time(test_entropy, hardware.hashrate_md5)
+
+                chart_labels.append(f"{test_len} симв.")
+                chart_data.append(round(test_time, 2))
+
             result = {
                 'entropy': entropy,
                 'crack_time': crack_time,
                 'is_pwned': is_pwned,
                 'length': len(password),
+                # Упаковываем списки в JSON, чтобы JavaScript смог их прочитать
+                'chart_labels': json.dumps(chart_labels),
+                'chart_data': json.dumps(chart_data),
             }
     else:
-        # Если пользователь просто зашел на сайт, показываем пустую форму
         form = PasswordCheckForm()
 
-    # Отправляем форму и результаты в HTML-шаблон (его мы создадим следующим шагом)
     return render(request, 'audit/check.html', {'form': form, 'result': result})
