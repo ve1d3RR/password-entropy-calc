@@ -1,0 +1,88 @@
+<!-- Наследуем дизайн из базового шаблона -->
+{% extends 'audit/base.html' %}
+
+{% block content %}
+<div class="row justify-content-center">
+
+    <!-- Левая колонка: Форма ввода -->
+    <div class="col-md-5">
+        <div class="card result-card mb-4">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">Настройки аудита</h5>
+            </div>
+            <div class="card-body">
+                <form method="POST">
+                    {% csrf_token %}
+
+                    <!-- Выводим поля формы, которые мы описали в forms.py -->
+                    <div class="mb-3">
+                        {{ form.project.label_tag }}
+                        {{ form.project }}
+                    </div>
+
+                    <div class="mb-3">
+                        {{ form.hardware.label_tag }}
+                        {{ form.hardware }}
+                    </div>
+
+                    <div class="mb-3">
+                        {{ form.password.label_tag }}
+                        {{ form.password }}
+                        <small class="text-muted">Пароль не сохраняется в базу данных. Отправка в API осуществляется хэшем.</small>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary w-100">Запустить проверку</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Правая колонка: Результаты (показываем только если нажали кнопку) -->
+    <div class="col-md-5">
+        {% if result %}
+            <div class="card result-card">
+                <div class="card-header bg-dark text-white">
+                    <h5 class="mb-0">Отчет безопасности</h5>
+                </div>
+                <ul class="list-group list-group-flush">
+
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        Длина пароля:
+                        <span class="badge bg-secondary rounded-pill">{{ result.length }} симв.</span>
+                    </li>
+
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        Энтропия (по Шеннону):
+                        <span class="badge bg-info rounded-pill">{{ result.entropy }} bit</span>
+                    </li>
+
+                    <li class="list-group-item">
+                        <p class="mb-1">Время перебора (Brute-Force):</p>
+                        <strong>{{ result.crack_time|floatformat:"0" }} секунд</strong>
+                    </li>
+
+                    <!-- РЕЗУЛЬТАТ ОТ АПИ (HIBP) -->
+                    <li class="list-group-item text-center p-3">
+                        {% if result.is_pwned %}
+                            <div class="alert alert-danger mb-0">
+                                <strong>⚠️ КРИТИЧЕСКАЯ УЯЗВИМОСТЬ</strong><br>
+                                Пароль найден в глобальных утечках (Pwned API). Немедленно смените пароль!
+                            </div>
+                        {% else %}
+                            <div class="alert alert-success mb-0">
+                                <strong>✅ БЕЗОПАСНО</strong><br>
+                                Пароль не фигурирует в известных базах утечек.
+                            </div>
+                        {% endif %}
+                    </li>
+                </ul>
+            </div>
+        {% else %}
+            <div class="alert alert-secondary text-center">
+                Заполните форму слева для получения отчета.
+            </div>
+        {% endif %}
+    </div>
+
+</div>
+{% endblock %}
