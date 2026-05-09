@@ -16,7 +16,11 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path
+# Импортируем наши views из приложения audit
+from audit import views
 
 urlpatterns = [
     path('admin/', admin.site.urls),
+    # Главная страница сайта будет вести на наш калькулятор
+    path('', views.check_password_view, name='check_password'),
 ]
