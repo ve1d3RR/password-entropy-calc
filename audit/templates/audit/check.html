@@ -1,53 +1,78 @@
 {% extends 'audit/base.html' %}
 
 {% block content %}
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+
 <style>
-    /* CSS Анимации */
-    .fade-in {
-        animation: fadeIn 0.8s ease-in-out;
+    .slide-up-fade {
+        animation: slideUpFade 0.6s cubic-bezier(0.25, 0.8, 0.25, 1) forwards;
     }
-    @keyframes fadeIn {
-        from { opacity: 0; transform: translateY(20px); }
-        to { opacity: 1; transform: translateY(0); }
+    @keyframes slideUpFade {
+        from { opacity: 0; transform: translateY(40px) scale(0.98); }
+        to { opacity: 1; transform: translateY(0) scale(1); }
     }
+
+    .glow-effect {
+        transition: box-shadow 0.3s ease-in-out;
+    }
+    .glow-effect:hover {
+        box-shadow: 0 0 25px rgba(13, 110, 253, 0.2);
+    }
+
     .pulse-danger {
-        animation: pulseDanger 2s infinite;
+        animation: pulseRed 2s infinite;
     }
-    @keyframes pulseDanger {
-        0% { box-shadow: 0 0 0 0 rgba(220, 53, 69, 0.7); }
-        70% { box-shadow: 0 0 0 10px rgba(220, 53, 69, 0); }
-        100% { box-shadow: 0 0 0 0 rgba(220, 53, 69, 0); }
+    @keyframes pulseRed {
+        0% { box-shadow: 0 0 0 0 rgba(220, 53, 69, 0.7); transform: scale(1); }
+        50% { box-shadow: 0 0 0 15px rgba(220, 53, 69, 0); transform: scale(1.02); }
+        100% { box-shadow: 0 0 0 0 rgba(220, 53, 69, 0); transform: scale(1); }
     }
+
     .result-card {
         border: none;
-        border-radius: 15px;
-        box-shadow: 0 10px 20px rgba(0,0,0,0.05);
-        transition: transform 0.3s;
+        border-radius: 16px;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.08);
     }
-    .result-card:hover {
-        transform: translateY(-5px);
+
+    .select2-container .select2-selection--single {
+        height: 38px !important;
+        border: 1px solid #dee2e6 !important;
+        border-radius: 0.375rem !important;
+        padding-top: 4px;
     }
 </style>
 
-<div class="row justify-content-center fade-in">
+<div class="row justify-content-center slide-up-fade">
 
     <!-- Форма ввода -->
     <div class="col-md-5 mb-4">
-        <div class="card result-card h-100">
-            <div class="card-header bg-dark text-white rounded-top-4">
-                <h5 class="mb-0 text-center">🛡️ Настройки аудита</h5>
+        <div class="card result-card glow-effect h-100">
+            <div class="card-header bg-dark text-white rounded-top-4 py-3">
+                <h5 class="mb-0 text-center fw-bold">Настройки аудита</h5>
             </div>
-            <div class="card-body">
+            <div class="card-body p-4">
                 <form method="POST">
                     {% csrf_token %}
-                    <div class="mb-3 fw-bold">{{ form.project.label_tag }} {{ form.project }}</div>
-                    <div class="mb-3 fw-bold">{{ form.hardware.label_tag }} {{ form.hardware }}</div>
+                    <div class="mb-3 fw-bold">
+                        {{ form.project.label_tag }}
+                        {{ form.project }}
+                    </div>
+
+                    <div class="mb-3 fw-bold">
+                        {{ form.hardware.label_tag }}
+                        {{ form.hardware }}
+                    </div>
+
                     <div class="mb-4 fw-bold">
                         {{ form.password.label_tag }}
                         {{ form.password }}
-                        <small class="text-muted fw-normal">Отправка в API осуществляется хэшем (k-Anonymity).</small>
+                        <small class="text-muted fw-normal d-block mt-1">
+                            <i class="text-primary">k-Anonymity API:</i> Пароль передается только в виде хэша.
+                        </small>
                     </div>
-                    <button type="submit" class="btn btn-primary w-100 py-2 fw-bold">🚀 Запустить проверку</button>
+                    <button type="submit" class="btn btn-primary w-100 py-3 fw-bold fs-5 shadow-sm">
+                        Проверить криптостойкость
+                    </button>
                 </form>
             </div>
         </div>
@@ -56,43 +81,44 @@
     <!-- Результаты и График -->
     <div class="col-md-7 mb-4">
         {% if result %}
-            <div class="card result-card fade-in">
-                <div class="card-header bg-dark text-white rounded-top-4">
-                    <h5 class="mb-0 text-center">📊 Отчет безопасности и Прогноз</h5>
+            <div class="card result-card slide-up-fade" style="animation-delay: 0.2s; opacity: 0;">
+                <div class="card-header bg-dark text-white rounded-top-4 py-3">
+                    <h5 class="mb-0 text-center fw-bold">Отчет безопасности</h5>
                 </div>
-                <div class="card-body row align-items-center">
+                <div class="card-body row align-items-center p-4">
 
-                    <!-- Вывод угрозы -->
                     <div class="col-12 mb-4 text-center">
                         {% if result.is_pwned %}
-                            <div class="alert alert-danger mb-0 pulse-danger fw-bold fs-5">
-                                ⚠️ КРИТИЧЕСКИЙ РИСК: Пароль найден в глобальных базах утечек!
+                            <div class="alert alert-danger mb-0 pulse-danger fw-bold fs-5 text-uppercase rounded-3">
+                                КРИТИЧЕСКИЙ РИСК:<br><span class="fs-6 text-dark">Пароль обнаружен в публичных базах утечек!</span>
                             </div>
                         {% else %}
-                            <div class="alert alert-success mb-0 fw-bold fs-5 shadow-sm">
-                                ✅ БЕЗОПАСНО: В базах утечек не найден.
+                            <div class="alert alert-success mb-0 fw-bold fs-5 shadow-sm rounded-3">
+                                БЕЗОПАСНО:<br><span class="fs-6 text-dark">Утечек пароля не зафиксировано.</span>
                             </div>
                         {% endif %}
                     </div>
 
                     <div class="col-sm-6 mb-3 text-center">
-                        <p class="mb-1 text-muted text-uppercase fw-bold" style="font-size: 0.8rem;">Длина / Энтропия</p>
-                        <h4 class="text-primary">{{ result.length }} симв. / {{ result.entropy }} bit</h4>
+                        <p class="mb-1 text-muted text-uppercase fw-bold" style="font-size: 0.8rem; letter-spacing: 1px;">Энтропия (Сложность)</p>
+                        <h3 class="text-primary fw-bold">{{ result.entropy }} bit</h3>
+                        <small class="text-muted">{{ result.length }} символов</small>
                     </div>
                     <div class="col-sm-6 mb-3 text-center">
-                        <p class="mb-1 text-muted text-uppercase fw-bold" style="font-size: 0.8rem;">Время перебора (Brute-Force)</p>
-                        <h4 class="text-warning">{{ result.crack_time|floatformat:"2" }} сек.</h4>
+                        <p class="mb-1 text-muted text-uppercase fw-bold" style="font-size: 0.8rem; letter-spacing: 1px;">Время Brute-Force</p>
+                        <h3 class="text-warning fw-bold">{{ result.crack_time|floatformat:"2" }} сек.</h3>
+                        <small class="text-muted">на выбранном оборудовании</small>
                     </div>
 
-                    <!-- Блок для графика -->
-                    <div class="col-12 mt-3">
-                        <h6 class="text-center text-muted fw-bold">Прогноз времени взлома при увеличении пароля</h6>
-                        <canvas id="crackChart" height="120"></canvas>
+                    <hr class="text-muted mt-3">
+
+                    <div class="col-12 mt-2">
+                        <h6 class="text-center text-muted fw-bold mb-3">Прогноз времени взлома (при удлинении пароля)</h6>
+                        <canvas id="crackChart" height="130"></canvas>
                     </div>
                 </div>
             </div>
 
-            <!-- Подключаем Chart.js -->
             <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
             <script>
                 const ctx = document.getElementById('crackChart').getContext('2d');
@@ -104,7 +130,7 @@
                     data: {
                         labels: labels,
                         datasets: [{
-                            label: 'Время взлома (сек.)',
+                            label: 'Сек. до взлома',
                             data: dataPoints,
                             borderColor: '#0d6efd',
                             backgroundColor: 'rgba(13, 110, 253, 0.1)',
@@ -112,17 +138,16 @@
                             pointBackgroundColor: '#fff',
                             pointBorderColor: '#0d6efd',
                             pointBorderWidth: 2,
-                            pointRadius: 5,
+                            pointRadius: 6,
+                            pointHoverRadius: 8,
                             fill: true,
                             tension: 0.4
                         }]
                     },
                     options: {
                         animation: {
-                            y: {
-                                duration: 1500,
-                                easing: 'easeOutElastic'
-                            }
+                            y: { duration: 2000, easing: 'easeOutElastic' },
+                            x: { duration: 1500, easing: 'easeOutExpo' }
                         },
                         scales: {
                             y: {
@@ -130,18 +155,28 @@
                                 title: { display: true, text: 'Секунды (Лог. шкала)'}
                             }
                         },
-                        plugins: {
-                            legend: { display: false }
-                        }
+                        plugins: { legend: { display: false } }
                     }
                 });
             </script>
         {% else %}
-            <div class="alert alert-secondary text-center h-100 d-flex align-items-center justify-content-center shadow-sm rounded-4">
-                <span class="fs-5 text-muted">👈 Заполните форму для получения отчета и графика.</span>
+            <div class="alert alert-light border text-center h-100 d-flex align-items-center justify-content-center rounded-4 shadow-sm">
+                <span class="fs-5 text-muted fw-semibold">Укажите данные для генерации отчета</span>
             </div>
         {% endif %}
     </div>
 
 </div>
+
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+<script>
+    $(document).ready(function() {
+        $('#id_hardware').select2({
+            placeholder: "Начните вводить название...",
+            allowClear: true,
+            width: '100%'
+        });
+    });
+</script>
 {% endblock %}
