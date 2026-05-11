@@ -1,3 +1,4 @@
+
 from django import forms
 from .models import AuditProject, HardwareRig
 
@@ -10,8 +11,7 @@ class PasswordCheckForm(forms.Form):
     """
     password = forms.CharField(
         label="Пароль для проверки",
-        # Используем PasswordInput, чтобы символы скрывались звездочками при вводе
-        widget=forms.PasswordInput(attrs={'class': 'form-control', 'placeholder': 'Секретный пароль...'}),
+        widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Введите пароль...'}),
         min_length=1
     )
 

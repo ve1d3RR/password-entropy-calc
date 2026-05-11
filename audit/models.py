@@ -1,9 +1,7 @@
 from django.db import models
 from django.contrib.auth.models import User
 
-
 class AuditProject(models.Model):
-    """Модель проекта (компании/отдела), для которого и соответственно проводится аудит"""
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='projects', verbose_name="Пользователь")
     name = models.CharField(max_length=255, verbose_name="Название проекта (компании)")
     description = models.TextField(blank=True, null=True, verbose_name="Описание проекта")
@@ -18,10 +16,12 @@ class AuditProject(models.Model):
 
 
 class HardwareRig(models.Model):
-    """Модель конфигурации оборудования (GPU-фермы) для расчета времени "Brute-Force" """
+    """
+    Лекция ООП: Инкапсулируем логику форматирования вывода внутри класса.
+    """
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='hardware', verbose_name="Пользователь")
     name = models.CharField(max_length=255, verbose_name="Название фермы (например: 4x RTX 4090)")
-    # Хэшрейт измеряется в огромных числах (миллиарды операций в секунду), поэтому используем BigIntegerField
+    power_watts = models.IntegerField(verbose_name="Энергопотребление (Ватт)", null=True, blank=True)
     hashrate_md5 = models.BigIntegerField(verbose_name="Скорость перебора MD5 (H/s)")
     hashrate_sha256 = models.BigIntegerField(verbose_name="Скорость перебора SHA-256 (H/s)")
 
@@ -29,20 +29,32 @@ class HardwareRig(models.Model):
         verbose_name = "Оборудование для взлома"
         verbose_name_plural = "Оборудование для взлома"
 
+    def formatted_md5(self):
+        """Возвращает хэшрейт MD5 в удобном для чтения формате (f-строки)"""
+        if self.hashrate_md5 >= 1_000_000_000:
+            return f"{self.hashrate_md5 / 1_000_000_000:.1f} GH/s"
+        return f"{self.hashrate_md5 / 1_000_000:.1f} MH/s"
+    formatted_md5.short_description = "Скорость MD5"
+    formatted_md5.admin_order_field = 'hashrate_md5'
+
+    def formatted_sha(self):
+        """Возвращает хэшрейт SHA-256 в удобном для чтения формате"""
+        if self.hashrate_sha256 >= 1_000_000_000:
+            return f"{self.hashrate_sha256 / 1_000_000_000:.1f} GH/s"
+        return f"{self.hashrate_sha256 / 1_000_000:.1f} MH/s"
+    formatted_sha.short_description = "Скорость SHA-256"
+    formatted_sha.admin_order_field = 'hashrate_sha256'
+
     def __str__(self):
-        return self.name
+        """Перегрузка оператора строкового представления"""
+        if self.power_watts:
+            return f"{self.name} [{self.power_watts}W] | {self.formatted_md5()}"
+        return f"{self.name} | {self.formatted_md5()}"
 
 
 class PasswordAuditLog(models.Model):
-    """
-    Журнал проверок паролей.
-    САМОЕ ВАЖНОЕ!: Мы не храним сам пароль в базе данных для соблюдения стандартов безопасности!
-    """
-    project = models.ForeignKey(AuditProject, on_delete=models.CASCADE, related_name='audit_logs',
-                                verbose_name="Проект")
-    # Если оборудование удалят, запись о проверке останется, просто поле hardware станет пустым (null=True)
+    project = models.ForeignKey(AuditProject, on_delete=models.CASCADE, related_name='audit_logs', verbose_name="Проект")
     hardware = models.ForeignKey(HardwareRig, on_delete=models.SET_NULL, null=True, verbose_name="Оборудование")
-
     password_length = models.IntegerField(verbose_name="Длина пароля")
     entropy_score = models.FloatField(verbose_name="Энтропия (бит)")
     time_to_crack_seconds = models.FloatField(verbose_name="Время взлома (секунды)")

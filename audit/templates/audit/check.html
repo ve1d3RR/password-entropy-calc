@@ -1,25 +1,53 @@
 {% extends 'audit/base.html' %}
 
 {% block content %}
-<div class="row justify-content-center">
+<style>
+    /* CSS Анимации */
+    .fade-in {
+        animation: fadeIn 0.8s ease-in-out;
+    }
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(20px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    .pulse-danger {
+        animation: pulseDanger 2s infinite;
+    }
+    @keyframes pulseDanger {
+        0% { box-shadow: 0 0 0 0 rgba(220, 53, 69, 0.7); }
+        70% { box-shadow: 0 0 0 10px rgba(220, 53, 69, 0); }
+        100% { box-shadow: 0 0 0 0 rgba(220, 53, 69, 0); }
+    }
+    .result-card {
+        border: none;
+        border-radius: 15px;
+        box-shadow: 0 10px 20px rgba(0,0,0,0.05);
+        transition: transform 0.3s;
+    }
+    .result-card:hover {
+        transform: translateY(-5px);
+    }
+</style>
+
+<div class="row justify-content-center fade-in">
 
     <!-- Форма ввода -->
     <div class="col-md-5 mb-4">
         <div class="card result-card h-100">
-            <div class="card-header bg-primary text-white">
-                <h5 class="mb-0">Настройки аудита</h5>
+            <div class="card-header bg-dark text-white rounded-top-4">
+                <h5 class="mb-0 text-center">🛡️ Настройки аудита</h5>
             </div>
             <div class="card-body">
                 <form method="POST">
                     {% csrf_token %}
-                    <div class="mb-3">{{ form.project.label_tag }} {{ form.project }}</div>
-                    <div class="mb-3">{{ form.hardware.label_tag }} {{ form.hardware }}</div>
-                    <div class="mb-4">
+                    <div class="mb-3 fw-bold">{{ form.project.label_tag }} {{ form.project }}</div>
+                    <div class="mb-3 fw-bold">{{ form.hardware.label_tag }} {{ form.hardware }}</div>
+                    <div class="mb-4 fw-bold">
                         {{ form.password.label_tag }}
                         {{ form.password }}
-                        <small class="text-muted">Отправка в API осуществляется хэшем (k-Anonymity).</small>
+                        <small class="text-muted fw-normal">Отправка в API осуществляется хэшем (k-Anonymity).</small>
                     </div>
-                    <button type="submit" class="btn btn-primary w-100">Запустить проверку</button>
+                    <button type="submit" class="btn btn-primary w-100 py-2 fw-bold">🚀 Запустить проверку</button>
                 </form>
             </div>
         </div>
@@ -28,31 +56,38 @@
     <!-- Результаты и График -->
     <div class="col-md-7 mb-4">
         {% if result %}
-            <div class="card result-card">
-                <div class="card-header bg-dark text-white">
-                    <h5 class="mb-0">Отчет безопасности и Прогноз</h5>
+            <div class="card result-card fade-in">
+                <div class="card-header bg-dark text-white rounded-top-4">
+                    <h5 class="mb-0 text-center">📊 Отчет безопасности и Прогноз</h5>
                 </div>
-                <div class="card-body row">
-                    <div class="col-sm-6 mb-3">
-                        <p class="mb-1 text-muted">Длина / Энтропия:</p>
-                        <h5>{{ result.length }} симв. / {{ result.entropy }} bit</h5>
-                    </div>
-                    <div class="col-sm-6 mb-3">
-                        <p class="mb-1 text-muted">Время перебора:</p>
-                        <h5>{{ result.crack_time|floatformat:"2" }} сек.</h5>
-                    </div>
-                    <div class="col-12 mb-3">
+                <div class="card-body row align-items-center">
+
+                    <!-- Вывод угрозы -->
+                    <div class="col-12 mb-4 text-center">
                         {% if result.is_pwned %}
-                            <div class="alert alert-danger mb-0">⚠️ <strong>СКОМПРОМЕТИРОВАН!</strong> Найден в базе утечек.</div>
+                            <div class="alert alert-danger mb-0 pulse-danger fw-bold fs-5">
+                                ⚠️ КРИТИЧЕСКИЙ РИСК: Пароль найден в глобальных базах утечек!
+                            </div>
                         {% else %}
-                            <div class="alert alert-success mb-0">✅ <strong>БЕЗОПАСНО.</strong> В базах утечек не найден.</div>
+                            <div class="alert alert-success mb-0 fw-bold fs-5 shadow-sm">
+                                ✅ БЕЗОПАСНО: В базах утечек не найден.
+                            </div>
                         {% endif %}
+                    </div>
+
+                    <div class="col-sm-6 mb-3 text-center">
+                        <p class="mb-1 text-muted text-uppercase fw-bold" style="font-size: 0.8rem;">Длина / Энтропия</p>
+                        <h4 class="text-primary">{{ result.length }} симв. / {{ result.entropy }} bit</h4>
+                    </div>
+                    <div class="col-sm-6 mb-3 text-center">
+                        <p class="mb-1 text-muted text-uppercase fw-bold" style="font-size: 0.8rem;">Время перебора (Brute-Force)</p>
+                        <h4 class="text-warning">{{ result.crack_time|floatformat:"2" }} сек.</h4>
                     </div>
 
                     <!-- Блок для графика -->
                     <div class="col-12 mt-3">
-                        <h6 class="text-center text-muted">Прогноз времени взлома при увеличении длины пароля</h6>
-                        <canvas id="crackChart" height="100"></canvas>
+                        <h6 class="text-center text-muted fw-bold">Прогноз времени взлома при увеличении пароля</h6>
+                        <canvas id="crackChart" height="120"></canvas>
                     </div>
                 </div>
             </div>
@@ -60,7 +95,6 @@
             <!-- Подключаем Chart.js -->
             <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
             <script>
-                // Получаем данные из Python (views.py)
                 const ctx = document.getElementById('crackChart').getContext('2d');
                 const labels = {{ result.chart_labels|safe }};
                 const dataPoints = {{ result.chart_data|safe }};
@@ -70,27 +104,42 @@
                     data: {
                         labels: labels,
                         datasets: [{
-                            label: 'Время взлома (секунды)',
+                            label: 'Время взлома (сек.)',
                             data: dataPoints,
                             borderColor: '#0d6efd',
-                            backgroundColor: 'rgba(13, 110, 253, 0.2)',
-                            borderWidth: 2,
+                            backgroundColor: 'rgba(13, 110, 253, 0.1)',
+                            borderWidth: 3,
+                            pointBackgroundColor: '#fff',
+                            pointBorderColor: '#0d6efd',
+                            pointBorderWidth: 2,
+                            pointRadius: 5,
                             fill: true,
-                            tension: 0.3
+                            tension: 0.4
                         }]
                     },
                     options: {
+                        animation: {
+                            y: {
+                                duration: 1500,
+                                easing: 'easeOutElastic'
+                            }
+                        },
                         scales: {
                             y: {
-                                type: 'logarithmic', // Логарифмическая шкала (т.к. время растет экспоненциально)
+                                type: 'logarithmic',
                                 title: { display: true, text: 'Секунды (Лог. шкала)'}
                             }
+                        },
+                        plugins: {
+                            legend: { display: false }
                         }
                     }
                 });
             </script>
         {% else %}
-            <div class="alert alert-secondary text-center">Заполните форму слева для получения отчета и графика.</div>
+            <div class="alert alert-secondary text-center h-100 d-flex align-items-center justify-content-center shadow-sm rounded-4">
+                <span class="fs-5 text-muted">👈 Заполните форму для получения отчета и графика.</span>
+            </div>
         {% endif %}
     </div>
 
