@@ -8,20 +8,24 @@ from .models import TargetGroup, HardwareRig
  """
 class PasswordCheckForm(forms.Form):
     password = forms.CharField(
-        label="Пароль для проверки",
+        label="Тестовый пароль",
         widget=forms.TextInput(attrs={'class': 'form-control', 'type': 'text', 'placeholder': 'Введите пароль...'}),
-        min_length=1
     )
-
     target = forms.ModelChoiceField(
         queryset=TargetGroup.objects.all(),
-        label="Группа (Категория цели)",
+        label="Объект атаки",
         widget=forms.Select(attrs={'class': 'form-select'}),
-        empty_label="Выберите категорию..."
+        empty_label="Выберите тип цели..."
     )
-
     hardware = forms.ModelMultipleChoiceField(
         queryset=HardwareRig.objects.all(),
-        label="Сборка оборудования (Пул)",
+        label="Состав вычислительного пула",
         widget=forms.SelectMultiple(attrs={'class': 'form-select'}),
+    )
+    # НОВОЕ ПОЛЕ: Множитель для идентичного оборудования
+    quantity = forms.IntegerField(
+        label="Количество таких систем в пуле",
+        initial=1,
+        min_value=1,
+        widget=forms.NumberInput(attrs={'class': 'form-control'})
     )

@@ -21,6 +21,7 @@ from audit import views
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    # Главная страница сайта будет вести на наш калькулятор
     path('', views.check_password_view, name='check_password'),
+    # Новый путь для поиска видеокарт из админки
+    path('api/gpu-search/', views.gpu_search_api, name='gpu_search_api'),
 ]

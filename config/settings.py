@@ -116,3 +116,4 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
 STATIC_URL = 'static/'
+MINERSTAT_API_KEY = "ms_69068551_46b6d2af50488a86c13be9a3881c30c04e8f523b15356dea"

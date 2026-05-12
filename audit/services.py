@@ -79,3 +79,30 @@ def check_pwned_password(password: str) -> bool:
         print(f"Ошибка API: {e}")
 
     return False  # Пароль безопасен (или не найден)
+
+
+def format_crack_time(seconds: float) -> str:
+    """
+    Превращает секунды в читаемый формат: годы, месяцы, дни и т.д.
+    """
+    if seconds == float('inf'):
+        return "Вечность"
+    if seconds < 1:
+        return "Мгновенно"
+
+    intervals = (
+        ('веков', 3153600000),
+        ('лет', 31536000),
+        ('мес.', 2592000),
+        ('дн.', 86400),
+        ('час.', 3600),
+        ('мин.', 60),
+        ('сек.', 1),
+    )
+
+    for name, count in intervals:
+        value = seconds // count
+        if value >= 1:
+            return f"{int(value)} {name}"
+
+    return "Мгновенно"

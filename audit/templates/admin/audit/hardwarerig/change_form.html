@@ -1,0 +1,100 @@
+{% extends "admin/change_form.html" %}
+
+{% block after_related_objects %}
+<style>
+    .gpu-helper-container {
+        background: #f8f9fa;
+        border: 1px solid #ced4da;
+        border-radius: 4px;
+        padding: 20px;
+        margin-bottom: 20px;
+        font-family: sans-serif;
+    }
+    .suggestion-btn {
+        cursor: pointer;
+        background: #ffffff;
+        border: 1px solid #dee2e6;
+        padding: 10px 15px;
+        border-radius: 4px;
+        margin-bottom: 8px;
+        transition: all 0.2s;
+    }
+    .suggestion-btn:hover {
+        background: #e9ecef;
+        border-color: #adb5bd;
+    }
+    .gpu-title { font-weight: 600; color: #212529; font-size: 14px; }
+    .gpu-specs { font-size: 12px; color: #6c757d; margin-top: 4px; }
+
+    #gpu-search-input {
+        width: 100%;
+        padding: 12px;
+        margin-top: 10px;
+        border: 1px solid #ced4da;
+        border-radius: 4px;
+        font-size: 14px;
+    }
+    #search-results { margin-top: 15px; max-height: 300px; overflow-y: auto; }
+</style>
+
+<div class="gpu-helper-container">
+    <h3 style="margin-top:0; color: #495057; font-size: 16px;">Поиск оборудования в базе Minerstat</h3>
+    <input type="text" id="gpu-search-input" placeholder="Введите модель видеокарты (например: 4090)...">
+    <div id="search-results"></div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const inputName = document.getElementById('id_name');
+        const inputPower = document.getElementById('id_power_watts');
+        const inputMd5 = document.getElementById('id_hashrate_md5');
+        const inputSha = document.getElementById('id_hashrate_sha256');
+        const searchInput = document.getElementById('gpu-search-input');
+        const resultsDiv = document.getElementById('search-results');
+
+        function fillForm(name, power, md5, sha) {
+            if (inputName) inputName.value = name;
+            if (inputPower) inputPower.value = power;
+            if (inputMd5) inputMd5.value = md5;
+            if (inputSha) inputSha.value = sha;
+
+            [inputName, inputPower, inputMd5, inputSha].forEach(el => {
+                if (el) {
+                    const originalBg = el.style.backgroundColor;
+                    el.style.backgroundColor = '#e8f0fe';
+                    setTimeout(() => el.style.backgroundColor = originalBg, 400);
+                }
+            });
+        }
+
+        let timeout = null;
+        searchInput.addEventListener('input', function() {
+            clearTimeout(timeout);
+            const val = this.value;
+            if (val.length < 2) { resultsDiv.innerHTML = ''; return; }
+
+            timeout = setTimeout(() => {
+                fetch(`/api/gpu-search/?q=${val}`)
+                    .then(res => res.json())
+                    .then(data => {
+                        resultsDiv.innerHTML = '';
+                        if (data.length === 0) {
+                            resultsDiv.innerHTML = '<div class="gpu-specs">Оборудование не найдено.</div>';
+                            return;
+                        }
+                        data.forEach(item => {
+                            const d = document.createElement('div');
+                            d.className = 'suggestion-btn';
+                            d.innerHTML = `
+                                <div class="gpu-title">${item.name}</div>
+                                <div class="gpu-specs">TDP: ${item.power}W | Память: ${item.memory} | MD5: ${(item.md5/1e9).toFixed(1)} GH/s</div>
+                            `;
+                            d.onclick = () => fillForm(item.name, item.power, item.md5, item.sha);
+                            resultsDiv.appendChild(d);
+                        });
+                    });
+            }, 600);
+        });
+    });
+</script>
+{% endblock %}
