@@ -7,94 +7,73 @@
 
 <style>
     /* Анимация при входе на страницу */
-    .page-entrance {
-        animation: fadeInDown 0.8s ease-out;
-    }
-    @keyframes fadeInDown {
-        from { opacity: 0; transform: translateY(-20px); }
-        to { opacity: 1; transform: translateY(0); }
-    }
+    .page-entrance { animation: fadeInDown 0.8s ease-out; }
+    @keyframes fadeInDown { from { opacity: 0; transform: translateY(-15px); } to { opacity: 1; transform: translateY(0); } }
 
-    /* Overlay для анимации "Анализа" */
-    #loading-overlay {
-        display: none;
-        position: fixed;
+    /* Overlay для анимации Анализа */
+    #analysis-overlay {
+        display: none; position: fixed;
         top: 0; left: 0; width: 100%; height: 100%;
-        background: rgba(26, 30, 35, 0.98);
-        z-index: 10000;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        color: #ffffff;
+        background: rgba(26, 30, 35, 0.98); z-index: 10000;
+        flex-direction: column; align-items: center; justify-content: center; color: #fff;
     }
-
     .loader {
-        width: 60px; height: 60px;
-        border: 5px solid rgba(255,255,255,0.1);
-        border-top: 5px solid #0d6efd;
-        border-radius: 50%;
+        width: 60px; height: 60px; border: 5px solid rgba(255,255,255,0.1);
+        border-top: 5px solid #0d6efd; border-radius: 50%;
         animation: spin 1s linear infinite;
     }
     @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 
-    /* Стиль карточек */
-    .card-custom {
-        border: none;
-        border-radius: 16px;
-        background: #fff;
-        box-shadow: 0 10px 30px rgba(0,0,0,0.05);
-        overflow: hidden;
+    /* Дизайн конструктора (корзины) */
+    .cluster-list { background: #f8f9fa; border-radius: 12px; padding: 15px; border: 1px solid #eee; min-height: 100px; }
+    .gpu-cart-item {
+        display: flex; justify-content: space-between; align-items: center;
+        background: #fff; padding: 10px 15px; border-radius: 8px;
+        margin-bottom: 8px; border: 1px solid #ddd;
+        animation: fadeInLeft 0.3s ease-out;
     }
+    .qty-controls { display: flex; align-items: center; gap: 10px; }
+    .btn-qty {
+        width: 30px; height: 30px; border-radius: 6px; border: 1px solid #0d6efd;
+        background: none; color: #0d6efd; font-weight: bold; transition: 0.2s;
+    }
+    .btn-qty:hover { background: #0d6efd; color: #fff; }
 
-    .stat-box {
-        background: #f8f9fa;
-        padding: 20px;
-        border-radius: 12px;
-        border: 1px solid #eee;
-    }
-
-    .gpu-item {
-        font-size: 0.85rem;
-        border-bottom: 1px solid #f8f9fa;
-        padding: 10px 0;
-    }
-
-    .color-dot {
-        width: 10px; height: 10px;
-        border-radius: 50%;
-        display: inline-block;
-        margin-right: 10px;
-    }
+    .card-custom { border: none; border-radius: 16px; background: #fff; box-shadow: 0 10px 30px rgba(0,0,0,0.05); }
+    .stat-box { background: #f8f9fa; padding: 20px; border-radius: 12px; border: 1px solid #eee; }
+    .gpu-detail-row { font-size: 0.85rem; border-bottom: 1px solid #f8f9fa; padding: 10px 0; }
 </style>
 
-<!-- Экран загрузки (показывается при отправке формы) -->
-<div id="loading-overlay">
+<div id="analysis-overlay">
     <div class="loader mb-4"></div>
-    <h5 class="fw-bold animate__animated animate__pulse animate__infinite">ВЫПОЛНЯЕТСЯ КРИПТОГРАФИЧЕСКИЙ АНАЛИЗ...</h5>
-    <p class="text-muted small">Расчет энтропии и проверка по базам утечек</p>
+    <h5 class="fw-bold animate__animated animate__pulse animate__infinite">ВЫПОЛНЯЕТСЯ КРИПТОАНАЛИЗ...</h5>
+    <p class="text-muted small">Моделирование атаки на вычислительном кластере</p>
 </div>
 
 <div class="page-entrance">
     <div class="row">
-        <!-- Панель управления -->
-        <div class="col-lg-4 mb-4">
+        <!-- Левая колонка: КОНСТРУКТОР -->
+        <div class="col-lg-5 mb-4">
             <div class="card card-custom p-4">
-                <h5 class="fw-bold mb-4 border-bottom pb-3">ПАРАМЕТРЫ СИСТЕМЫ</h5>
+                <h5 class="fw-bold mb-4 border-bottom pb-3">КОНСТРУКТОР КЛАСТЕРА</h5>
                 <form method="POST" id="audit-form">
                     {% csrf_token %}
-                    <div class="mb-3">
-                        <label class="small fw-bold text-muted text-uppercase mb-2">Группа цели</label>
+                    {{ form.cluster_data }} <!-- Скрытое поле для JSON -->
+
+                    <div class="mb-4">
+                        <label class="small fw-bold text-muted text-uppercase mb-2">Объект атаки</label>
                         {{ form.target }}
                     </div>
 
-                    <div class="row g-2 mb-3">
-                        <div class="col-8">
-                            <label class="small fw-bold text-muted text-uppercase mb-2">Оборудование в узле</label>
-                            {{ form.hardware }}
+                    <div class="mb-4">
+                        <label class="small fw-bold text-muted text-uppercase mb-2">Формирование мощностей</label>
+                        <div class="input-group">
+                            <select id="gpu-search-select" class="form-select"></select>
+                            <button type="button" id="btn-add-gpu" class="btn btn-outline-primary fw-bold">ДОБАВИТЬ</button>
                         </div>
-                        <div class="col-4">
-                            <label class="small fw-bold text-muted text-uppercase mb-2">Кол-во узлов</label>
-                            {{ form.quantity }}
+
+                        <div id="cluster-display" class="cluster-list mt-3">
+                            <p id="empty-msg" class="text-muted small text-center mt-4">Кластер пуст. Добавьте GPU через поиск выше.</p>
                         </div>
                     </div>
 
@@ -103,62 +82,46 @@
                         {{ form.password }}
                     </div>
 
-                    <button type="submit" class="btn btn-primary w-100 py-3 fw-bold shadow-sm">
-                        НАЧАТЬ АНАЛИЗ
+                    <button type="submit" class="btn btn-primary w-100 py-3 fw-bold shadow-sm rounded-3" id="submit-audit">
+                        ЗАПУСТИТЬ АНАЛИЗ
                     </button>
                 </form>
             </div>
         </div>
 
-        <!-- Результаты анализа -->
-        <div class="col-lg-8">
+        <!-- Правая колонка: РЕЗУЛЬТАТЫ -->
+        <div class="col-lg-7">
             {% if result %}
-                <div class="card card-custom p-4 animate__animated animate__fadeInRight">
-                    <!-- Статус безопасности -->
-                    <div class="mb-4 text-center">
-                        {% if result.is_pwned %}
-                            <div class="p-3 rounded-3 bg-danger bg-opacity-10 text-danger fw-bold border border-danger animate__animated animate__shakeX">
-                                ВНИМАНИЕ: Пароль скомпрометирован! Обнаружен в публичных утечках.
-                            </div>
-                        {% else %}
-                            <div class="p-3 rounded-3 bg-success bg-opacity-10 text-success fw-bold border border-success">
-                                СТАТУС: Безопасно. Утечек не зафиксировано.
-                            </div>
-                        {% endif %}
-                    </div>
-
-                    <!-- Основные метрики -->
+                <div class="card card-custom p-4 animate__animated animate__fadeIn">
                     <div class="row g-3 mb-5">
                         <div class="col-md-4 text-center border-end">
-                            <div class="small text-muted fw-bold text-uppercase mb-1">Стойкость</div>
-                            <div class="h3 fw-bold text-{{ result.strength_class }}">{{ result.strength }}</div>
-                        </div>
-                        <div class="col-md-4 text-center border-end">
-                            <div class="small text-muted fw-bold text-uppercase mb-1">Время подбора</div>
+                            <div class="small text-muted fw-bold mb-1 text-uppercase">Время взлома</div>
                             <div class="h3 fw-bold text-warning">{{ result.crack_time_display }}</div>
                         </div>
-                        <div class="col-md-4 text-center">
-                            <div class="small text-muted fw-bold text-uppercase mb-1">Мощность пула</div>
+                        <div class="col-md-4 text-center border-end">
+                            <div class="small text-muted fw-bold mb-1 text-uppercase">Мощность пула</div>
                             <div class="h3 fw-bold text-primary">{{ result.total_md5_gh }} GH/s</div>
+                        </div>
+                        <div class="col-md-4 text-center">
+                            <div class="small text-muted fw-bold mb-1 text-uppercase">Сложность</div>
+                            <div class="h3 fw-bold">{{ result.entropy }} bit</div>
                         </div>
                     </div>
 
-                    <!-- Графики -->
-                    <div class="row align-items-center mb-4">
+                    <div class="row mb-4">
                         <div class="col-md-6 border-end">
-                            <p class="text-center small fw-bold text-muted mb-3 text-uppercase">Прогноз устойчивости</p>
+                            <p class="text-center small fw-bold text-muted text-uppercase">Прогноз устойчивости</p>
                             <div style="height: 200px;"><canvas id="lineChart"></canvas></div>
                         </div>
                         <div class="col-md-6">
-                            <p class="text-center small fw-bold text-muted mb-3 text-uppercase">Структура мощностей (%)</p>
-                            <div style="height: 180px;"><canvas id="doughnutChart"></canvas></div>
+                            <p class="text-center small fw-bold text-muted text-uppercase">Вклад устройств в пул</p>
+                            <div style="height: 180px;"><canvas id="pieChart"></canvas></div>
                         </div>
                     </div>
 
-                    <!-- Легенда и вклады -->
                     <div class="mt-4 pt-3 border-top">
-                        <h6 class="fw-bold small text-muted text-uppercase mb-3">Детальный вклад оборудования:</h6>
-                        <div id="gpu-contribution-details"></div>
+                        <h6 class="fw-bold small text-muted text-uppercase mb-3">Состав вычислительного кластера:</h6>
+                        <div id="gpu-contribution-list"></div>
                     </div>
                 </div>
 
@@ -166,7 +129,6 @@
                 <script>
                     const chartColors = ['#1a1e23', '#0d6efd', '#6c757d', '#adb5bd', '#495057'];
 
-                    // Линейный график
                     new Chart(document.getElementById('lineChart'), {
                         type: 'line',
                         data: {
@@ -175,41 +137,39 @@
                                 data: {{ result.chart_data|safe }},
                                 borderColor: '#0d6efd',
                                 backgroundColor: 'rgba(13, 110, 253, 0.05)',
-                                fill: true, tension: 0.4, borderWidth: 3, pointRadius: 4
+                                fill: true, tension: 0.4, borderWidth: 3
                             }]
                         },
                         options: { maintainAspectRatio: false, scales: { y: { type: 'logarithmic', display: false } }, plugins: { legend: { display: false } } }
                     });
 
-                    // Круговой график
-                    const pieRawData = {{ result.pie_json|safe }};
-                    new Chart(document.getElementById('doughnutChart'), {
+                    const pieData = {{ result.pie_json|safe }};
+                    new Chart(document.getElementById('pieChart'), {
                         type: 'doughnut',
                         data: {
-                            labels: pieRawData.map(i => i.name),
-                            datasets: [{ data: pieRawData.map(i => i.raw_val), backgroundColor: chartColors, borderWidth: 0 }]
+                            labels: pieData.map(i => i.name),
+                            datasets: [{ data: pieData.map(i => i.raw_val), backgroundColor: chartColors, borderWidth: 0 }]
                         },
                         options: { maintainAspectRatio: false, cutout: '80%', plugins: { legend: { display: false } } }
                     });
 
-                    // Генерация легенды вклада
-                    const detailsContainer = document.getElementById('gpu-contribution-details');
-                    pieRawData.forEach((item, index) => {
-                        detailsContainer.innerHTML += `
-                            <div class="gpu-item d-flex justify-content-between align-items-center">
-                                <span><span class="color-dot" style="background:${chartColors[index % chartColors.length]}"></span>${item.name}</span>
+                    const container = document.getElementById('gpu-contribution-list');
+                    pieData.forEach((item, index) => {
+                        container.innerHTML += `
+                            <div class="gpu-detail-row d-flex justify-content-between align-items-center">
+                                <span class="fw-bold text-dark">${item.name}</span>
                                 <span>
-                                    <span class="fw-bold text-dark">${item.ghs} GH/s</span>
-                                    <span class="badge bg-light text-dark border ms-2">${item.percent}%</span>
-                                    <a href="${item.url}" target="_blank" class="ms-3 text-decoration-none small text-primary">&rarr;</a>
+                                    <span class="me-3">${item.ghs} GH/s</span>
+                                    <span class="badge bg-light text-dark border">${item.percent}%</span>
+                                    <a href="${item.url}" target="_blank" class="ms-2 text-decoration-none">&rarr;</a>
                                 </span>
                             </div>
                         `;
                     });
                 </script>
             {% else %}
-                <div class="card card-custom p-5 text-center bg-light d-flex align-items-center justify-content-center" style="min-height: 480px; border: 2px dashed #eee;">
-                    <p class="text-muted fw-bold mb-0 text-uppercase" style="letter-spacing: 2px;">Ожидание параметров для проведения анализа</p>
+                <div class="card card-custom p-5 text-center bg-light d-flex align-items-center justify-content-center border-dashed" style="min-height: 550px;">
+                    <p class="text-muted fw-bold mb-0">СФОРМИРУЙТЕ КЛАСТЕР И ВВЕДИТЕ ПАРОЛЬ ДЛЯ АНАЛИЗА</p>
                 </div>
             {% endif %}
         </div>
@@ -218,14 +178,88 @@
 
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
-<script>
-    $(document).ready(function() {
-        // Умный поиск видеокарт
-        $('#id_hardware').select2({ placeholder: "Начните ввод..." });
 
-        // Активация экрана загрузки при старте анализа
+<script>
+    let cluster = []; // Локальное хранилище "корзины"
+
+    $(document).ready(function() {
+        const searchSelect = $('#gpu-search-select');
+
+        // Настройка умного поиска
+        searchSelect.select2({
+            placeholder: "Поиск GPU по названию...",
+            ajax: {
+                url: '/api/gpu-search/',
+                dataType: 'json',
+                delay: 400,
+                processResults: data => ({ results: data.map(i => ({ id: i.name, text: i.name, raw: i })) })
+            }
+        });
+
+        // Кнопка добавления в кластер
+        $('#btn-add-gpu').click(function() {
+            const selected = searchSelect.select2('data')[0];
+            if (!selected) return;
+
+            const existing = cluster.find(i => i.name === selected.text);
+            if (existing) {
+                existing.count++;
+            } else {
+                cluster.push({
+                    name: selected.text,
+                    count: 1,
+                    md5: selected.raw.md5,
+                    sha: selected.raw.sha,
+                    power: selected.raw.power
+                });
+            }
+            renderCluster();
+        });
+
+        function renderCluster() {
+            const display = $('#cluster-display');
+            const hiddenInput = $('#id_cluster_data');
+            display.empty();
+
+            if (cluster.length === 0) {
+                display.append('<p class="text-muted small text-center mt-4">Кластер пуст</p>');
+                hiddenInput.val('');
+                return;
+            }
+
+            cluster.forEach((item, index) => {
+                display.append(`
+                    <div class="gpu-cart-item animate__animated animate__fadeInLeft">
+                        <div>
+                            <div class="fw-bold small text-dark">${item.name}</div>
+                            <div class="text-muted" style="font-size: 0.7rem;">~${(item.md5/1e9).toFixed(1)} GH/s</div>
+                        </div>
+                        <div class="qty-controls">
+                            <button type="button" class="btn-qty" onclick="changeQty(${index}, -1)">-</button>
+                            <span class="fw-bold small">${item.count}</span>
+                            <button type="button" class="btn-qty" onclick="changeQty(${index}, 1)">+</button>
+                        </div>
+                    </div>
+                `);
+            });
+
+            // Записываем данные кластера в скрытое поле для Python
+            hiddenInput.val(JSON.stringify(cluster));
+        }
+
+        window.changeQty = (index, delta) => {
+            cluster[index].count += delta;
+            if (cluster[index].count <= 0) cluster.splice(index, 1);
+            renderCluster();
+        };
+
+        // Показ анимации загрузки
         $('#audit-form').on('submit', function() {
-            $('#loading-overlay').css('display', 'flex').hide().fadeIn(300);
+            if(cluster.length === 0) {
+                alert("Пожалуйста, добавьте хотя бы одну видеокарту в кластер.");
+                return false;
+            }
+            $('#analysis-overlay').css('display', 'flex').hide().fadeIn(300);
         });
     });
 </script>

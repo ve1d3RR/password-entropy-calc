@@ -9,7 +9,7 @@ from .forms import PasswordCheckForm
 from .models import TargetGroup, HardwareRig, PasswordAuditLog
 from . import services
 
-# Резервный справочник оборудования для автономной работы
+# Резервный справочник оборудования
 HARDWARE_CATALOG = [
     {"name": "NVIDIA GeForce RTX 5090", "md5": 380_000_000_000, "sha": 50_000_000_000},
     {"name": "NVIDIA GeForce RTX 5080", "md5": 260_000_000_000, "sha": 35_000_000_000},
@@ -22,7 +22,6 @@ HARDWARE_CATALOG = [
 
 
 def fetch_minerstat_gpus():
-    """Загрузка данных из внешнего API Minerstat"""
     api_key = getattr(settings, 'MINERSTAT_API_KEY', '')
     url = "https://api.minerstat.com/v2/hardware"
     headers = {"X-API-Key": api_key, "Accept": "application/json"}
@@ -37,7 +36,6 @@ def fetch_minerstat_gpus():
 
 
 def gpu_search_api(request):
-    """Живой поиск видеокарт по API и локальной базе"""
     query = request.GET.get('q', '').lower().strip()
     if not query:
         return JsonResponse([], safe=False)
@@ -72,75 +70,82 @@ def gpu_search_api(request):
 
 
 def check_password_view(request):
-    """
-    Основная логика анализа пароля.
-    Рассчитывает параметры на основе выбранного пула оборудования и его количества.
-    """
     result = None
     if request.method == 'POST':
         form = PasswordCheckForm(request.POST)
         if form.is_valid():
             password = form.cleaned_data['password']
             target = form.cleaned_data['target']
-            hardware_list = form.cleaned_data['hardware']
-            quantity = form.cleaned_data.get('quantity', 1)
+            cluster_raw = form.cleaned_data.get('cluster_data')
 
-            # Расчет суммарной мощности: (сумма хэшрейтов выбранных карт) * количество систем
-            total_md5 = sum(gpu.hashrate_md5 for gpu in hardware_list) * quantity
+            try:
+                selected_hardware = json.loads(cluster_raw)
+            except:
+                selected_hardware = []
+
+            total_md5 = 0
+            pie_data = []
+            hardware_objects = []
+
+            # --- ИНТЕГРИРОВАННЫЙ ЦИКЛ ОБРАБОТКИ КЛАСТЕРА ---
+            for item in selected_hardware:
+                # Пытаемся найти или создать видеокарту по имени из поиска
+                gpu, created = HardwareRig.objects.get_or_create(
+                    name=item['name'],
+                    defaults={
+                        # Если карты нет в нашей БД, ставим средние значения хэшрейта
+                        'hashrate_md5': item.get('md5', 100_000_000_000),
+                        'hashrate_sha256': item.get('sha', 10_000_000_000),
+                        'power_watts': item.get('power', 150)
+                    }
+                )
+
+                count = int(item.get('count', 1))
+                gpu_total_power = gpu.hashrate_md5 * count
+                total_md5 += gpu_total_power
+
+                hardware_objects.append(gpu)
+
+                url_name = gpu.name.lower().replace(" ", "-").replace("(", "").replace(")", "")
+                pie_data.append({
+                    'name': f"{gpu.name} (x{count})",
+                    'raw_val': gpu_total_power,
+                    'ghs': round(gpu_total_power / 1_000_000_000, 1),
+                    'url': f"https://minerstat.com/hardware/{url_name}"
+                })
+
+            if total_md5 == 0: total_md5 = 1_000_000_000  # Защита от 0
 
             entropy = services.calculate_entropy(password)
             crack_time_seconds = services.calculate_crack_time(entropy, total_md5)
 
-            # Преобразование секунд в человекочитаемый формат (дни, месяцы, годы)
+            # Использование функции форматирования времени из services.py
             readable_time = services.format_crack_time(crack_time_seconds)
-
             is_pwned = services.check_pwned_password(password)
 
-            # Определение категории стойкости
-            if entropy < 40:
-                strength, strength_class = "НИЗКАЯ", "danger"
-            elif entropy < 60:
-                strength, strength_class = "СРЕДНЯЯ", "warning"
-            else:
-                strength, strength_class = "ВЫСОКАЯ", "success"
-
-            # Сохранение результатов аудита в БД
             log = PasswordAuditLog.objects.create(
                 target=target, password_length=len(password),
                 entropy_score=entropy, time_to_crack_seconds=crack_time_seconds, is_pwned=is_pwned
             )
-            log.hardware.set(hardware_list)
+            log.hardware.set(hardware_objects)
 
-            # Генерация данных для линейного графика (прогноз)
+            # Данные для линейного прогноза
             labels, values = [], []
+            alphabet_size = services.get_alphabet_size(password)
             for i in range(6):
                 new_len = len(password) + i
-                e = new_len * math.log2(services.get_alphabet_size(password))
+                e = new_len * math.log2(alphabet_size) if alphabet_size > 0 else 0
                 labels.append(f"+{i}")
-                # Добавляем в график сырые секунды для корректного отображения шкалы
                 values.append(services.calculate_crack_time(e, total_md5))
 
-            # Генерация данных для круговой диаграммы (вклад устройств)
-            pie_data = []
-            for gpu in hardware_list:
-                # Вклад считается с учетом множителя пула
-                gpu_total = gpu.hashrate_md5 * quantity
-                share = (gpu_total / total_md5 * 100) if total_md5 > 0 else 0
-                url_name = gpu.name.lower().replace(" ", "-").replace("(", "").replace(")", "")
-                pie_data.append({
-                    'name': gpu.name,
-                    'ghs': round(gpu_total / 1_000_000_000, 1),
-                    'percent': round(share, 1),
-                    'url': f"https://minerstat.com/hardware/{url_name}",
-                    'raw_val': gpu_total
-                })
+            # Расчет процентов для каждого участника кластера
+            for p in pie_data:
+                p['percent'] = round((p['raw_val'] / total_md5) * 100, 1)
 
             result = {
                 'entropy': entropy,
                 'crack_time_display': readable_time,
                 'is_pwned': is_pwned,
-                'strength': strength,
-                'strength_class': strength_class,
                 'total_md5_gh': round(total_md5 / 1_000_000_000, 2),
                 'chart_labels': json.dumps(labels),
                 'chart_data': json.dumps(values),
