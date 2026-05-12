@@ -1,12 +1,9 @@
 import requests
 from django.contrib import admin, messages
-from .models import AuditProject, HardwareRig, PasswordAuditLog
+from .models import TargetGroup, HardwareRig, PasswordAuditLog
 
 @admin.action(description="Загрузить список актуальных видеокарт (2025 год)")
 def load_top_2025_gpus(modeladmin, request, queryset):
-    """
-    Загружает предустановленный список актуальных видеокарт на 2025 год.
-    """
     top_gpus = [
         {"name": "NVIDIA GeForce RTX 5090", "power": 600, "md5": 380_000_000_000, "sha": 50_000_000_000},
         {"name": "NVIDIA GeForce RTX 5080", "power": 400, "md5": 260_000_000_000, "sha": 35_000_000_000},
@@ -31,7 +28,6 @@ def load_top_2025_gpus(modeladmin, request, queryset):
             obj, created = HardwareRig.objects.get_or_create(
                 name=gpu['name'],
                 defaults={
-                    'user': request.user,
                     'power_watts': gpu['power'],
                     'hashrate_md5': gpu['md5'],
                     'hashrate_sha256': gpu['sha'],
@@ -43,12 +39,9 @@ def load_top_2025_gpus(modeladmin, request, queryset):
     except Exception as e:
         modeladmin.message_user(request, f"Ошибка базы данных: {e}", messages.ERROR)
 
-
-@admin.register(AuditProject)
-class AuditProjectAdmin(admin.ModelAdmin):
-    list_display = ('name', 'user', 'created_at')
-    search_fields = ('name', 'user__username', 'description')
-
+@admin.register(TargetGroup)
+class TargetGroupAdmin(admin.ModelAdmin):
+    list_display = ('name', 'created_at')
 
 @admin.register(HardwareRig)
 class HardwareRigAdmin(admin.ModelAdmin):
@@ -57,7 +50,6 @@ class HardwareRigAdmin(admin.ModelAdmin):
     actions = [load_top_2025_gpus]
     ordering = ['-hashrate_md5']
 
-
 @admin.register(PasswordAuditLog)
 class PasswordAuditLogAdmin(admin.ModelAdmin):
-    list_display = ('project', 'password_length', 'entropy_score', 'is_pwned', 'tested_at')
+    list_display = ('target', 'password_length', 'entropy_score', 'is_pwned', 'tested_at')

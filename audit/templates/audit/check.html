@@ -4,164 +4,172 @@
 <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
 
 <style>
-    .slide-up-fade {
-        animation: slideUpFade 0.6s cubic-bezier(0.25, 0.8, 0.25, 1) forwards;
+    .anim-fade-up {
+        animation: fadeUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        opacity: 0;
+        transform: translateY(20px);
     }
-    @keyframes slideUpFade {
-        from { opacity: 0; transform: translateY(40px) scale(0.98); }
-        to { opacity: 1; transform: translateY(0) scale(1); }
+    .delay-1 { animation-delay: 0.1s; }
+    .delay-2 { animation-delay: 0.3s; }
+
+    @keyframes fadeUp {
+        to { opacity: 1; transform: translateY(0); }
     }
 
-    .glow-effect {
-        transition: box-shadow 0.3s ease-in-out;
+    .btn-animated {
+        transition: all 0.2s ease;
     }
-    .glow-effect:hover {
-        box-shadow: 0 0 25px rgba(13, 110, 253, 0.2);
+    .btn-animated:hover {
+        transform: scale(1.02);
+        box-shadow: 0 5px 15px rgba(13, 110, 253, 0.3);
     }
-
-    .pulse-danger {
-        animation: pulseRed 2s infinite;
-    }
-    @keyframes pulseRed {
-        0% { box-shadow: 0 0 0 0 rgba(220, 53, 69, 0.7); transform: scale(1); }
-        50% { box-shadow: 0 0 0 15px rgba(220, 53, 69, 0); transform: scale(1.02); }
-        100% { box-shadow: 0 0 0 0 rgba(220, 53, 69, 0); transform: scale(1); }
+    .btn-animated:active {
+        transform: scale(0.98);
     }
 
     .result-card {
         border: none;
-        border-radius: 16px;
-        box-shadow: 0 10px 30px rgba(0,0,0,0.08);
+        border-radius: 12px;
+        box-shadow: 0 8px 24px rgba(0,0,0,0.06);
     }
 
-    .select2-container .select2-selection--single {
-        height: 38px !important;
-        border: 1px solid #dee2e6 !important;
-        border-radius: 0.375rem !important;
-        padding-top: 4px;
+    .select2-container--default .select2-selection--multiple {
+        border: 1px solid #dee2e6;
+        border-radius: 0.375rem;
+        min-height: 42px;
+    }
+    .select2-container--default .select2-selection--multiple .select2-selection__choice {
+        background-color: #0d6efd;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        padding: 2px 8px;
     }
 </style>
 
-<div class="row justify-content-center slide-up-fade">
+<div class="row justify-content-center">
 
     <!-- Форма ввода -->
-    <div class="col-md-5 mb-4">
-        <div class="card result-card glow-effect h-100">
-            <div class="card-header bg-dark text-white rounded-top-4 py-3">
-                <h5 class="mb-0 text-center fw-bold">Настройки аудита</h5>
+    <div class="col-md-5 mb-4 anim-fade-up delay-1">
+        <div class="card result-card h-100">
+            <div class="card-header bg-white border-bottom-0 pt-4 pb-0">
+                <h5 class="mb-0 text-center fw-bold text-dark">Параметры аудита</h5>
             </div>
             <div class="card-body p-4">
                 <form method="POST">
                     {% csrf_token %}
-                    <div class="mb-3 fw-bold">
-                        {{ form.project.label_tag }}
-                        {{ form.project }}
+                    <div class="mb-3">
+                        <label class="fw-bold text-secondary small text-uppercase mb-1">Группа цели</label>
+                        {{ form.target }}
                     </div>
 
-                    <div class="mb-3 fw-bold">
-                        {{ form.hardware.label_tag }}
+                    <div class="mb-3">
+                        <label class="fw-bold text-secondary small text-uppercase mb-1 d-flex justify-content-between">
+                            <span>Пул оборудования</span>
+                            <a href="/admin/audit/hardwarerig/add/" target="_blank" class="text-decoration-none small text-primary">Добавить свое</a>
+                        </label>
                         {{ form.hardware }}
+                        <small class="text-muted mt-1 d-block">Можно выбрать несколько видеокарт. Мощность суммируется.</small>
                     </div>
 
-                    <div class="mb-4 fw-bold">
-                        {{ form.password.label_tag }}
+                    <div class="mb-4">
+                        <label class="fw-bold text-secondary small text-uppercase mb-1">Пароль</label>
                         {{ form.password }}
-                        <small class="text-muted fw-normal d-block mt-1">
-                            <i class="text-primary">k-Anonymity API:</i> Пароль передается только в виде хэша.
-                        </small>
                     </div>
-                    <button type="submit" class="btn btn-primary w-100 py-3 fw-bold fs-5 shadow-sm">
-                        Проверить криптостойкость
+                    <button type="submit" class="btn btn-primary w-100 py-3 fw-bold btn-animated">
+                        Запустить анализ
                     </button>
                 </form>
             </div>
         </div>
     </div>
 
-    <!-- Результаты и График -->
-    <div class="col-md-7 mb-4">
+    <!-- Результаты -->
+    <div class="col-md-7 mb-4 anim-fade-up delay-2">
         {% if result %}
-            <div class="card result-card slide-up-fade" style="animation-delay: 0.2s; opacity: 0;">
-                <div class="card-header bg-dark text-white rounded-top-4 py-3">
-                    <h5 class="mb-0 text-center fw-bold">Отчет безопасности</h5>
-                </div>
-                <div class="card-body row align-items-center p-4">
+            <div class="card result-card">
+                <div class="card-body p-4">
 
-                    <div class="col-12 mb-4 text-center">
+                    <div class="col-12 mb-4">
                         {% if result.is_pwned %}
-                            <div class="alert alert-danger mb-0 pulse-danger fw-bold fs-5 text-uppercase rounded-3">
-                                КРИТИЧЕСКИЙ РИСК:<br><span class="fs-6 text-dark">Пароль обнаружен в публичных базах утечек!</span>
+                            <div class="alert alert-danger mb-0 fw-bold border-0" style="background-color: #ffe5e5; color: #b02a37;">
+                                ВНИМАНИЕ: Пароль скомпрометирован. Обнаружен в базах утечек.
                             </div>
                         {% else %}
-                            <div class="alert alert-success mb-0 fw-bold fs-5 shadow-sm rounded-3">
-                                БЕЗОПАСНО:<br><span class="fs-6 text-dark">Утечек пароля не зафиксировано.</span>
+                            <div class="alert alert-success mb-0 fw-bold border-0" style="background-color: #d1e7dd; color: #0f5132;">
+                                ПРОВЕРКА ПРОЙДЕНА: Утечек не зафиксировано.
                             </div>
                         {% endif %}
                     </div>
 
-                    <div class="col-sm-6 mb-3 text-center">
-                        <p class="mb-1 text-muted text-uppercase fw-bold" style="font-size: 0.8rem; letter-spacing: 1px;">Энтропия (Сложность)</p>
-                        <h3 class="text-primary fw-bold">{{ result.entropy }} bit</h3>
-                        <small class="text-muted">{{ result.length }} символов</small>
-                    </div>
-                    <div class="col-sm-6 mb-3 text-center">
-                        <p class="mb-1 text-muted text-uppercase fw-bold" style="font-size: 0.8rem; letter-spacing: 1px;">Время Brute-Force</p>
-                        <h3 class="text-warning fw-bold">{{ result.crack_time|floatformat:"2" }} сек.</h3>
-                        <small class="text-muted">на выбранном оборудовании</small>
+                    <div class="row mb-4">
+                        <div class="col-sm-6 text-center border-end">
+                            <p class="mb-1 text-secondary small text-uppercase fw-bold">Энтропия (Сложность)</p>
+                            <h3 class="text-dark fw-bold mb-0">{{ result.entropy }} bit</h3>
+                        </div>
+                        <div class="col-sm-6 text-center">
+                            <p class="mb-1 text-secondary small text-uppercase fw-bold">Время перебора пулом</p>
+                            <h3 class="text-primary fw-bold mb-0">{{ result.crack_time|floatformat:"2" }} сек</h3>
+                        </div>
                     </div>
 
-                    <hr class="text-muted mt-3">
-
-                    <div class="col-12 mt-2">
-                        <h6 class="text-center text-muted fw-bold mb-3">Прогноз времени взлома (при удлинении пароля)</h6>
-                        <canvas id="crackChart" height="130"></canvas>
+                    <div class="row">
+                        <!-- Линейный график -->
+                        <div class="col-md-7">
+                            <canvas id="crackChart" height="200"></canvas>
+                        </div>
+                        <!-- Круговой график (вклад видеокарт) -->
+                        <div class="col-md-5 d-flex align-items-center justify-content-center">
+                            <canvas id="pieChart" height="180"></canvas>
+                        </div>
                     </div>
+
                 </div>
             </div>
 
             <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
             <script>
-                const ctx = document.getElementById('crackChart').getContext('2d');
-                const labels = {{ result.chart_labels|safe }};
-                const dataPoints = {{ result.chart_data|safe }};
-
-                new Chart(ctx, {
+                // Линейный график
+                new Chart(document.getElementById('crackChart').getContext('2d'), {
                     type: 'line',
                     data: {
-                        labels: labels,
+                        labels: {{ result.chart_labels|safe }},
                         datasets: [{
                             label: 'Сек. до взлома',
-                            data: dataPoints,
+                            data: {{ result.chart_data|safe }},
                             borderColor: '#0d6efd',
                             backgroundColor: 'rgba(13, 110, 253, 0.1)',
-                            borderWidth: 3,
-                            pointBackgroundColor: '#fff',
-                            pointBorderColor: '#0d6efd',
-                            pointBorderWidth: 2,
-                            pointRadius: 6,
-                            pointHoverRadius: 8,
-                            fill: true,
-                            tension: 0.4
+                            borderWidth: 2, fill: true, tension: 0.3
                         }]
                     },
                     options: {
-                        animation: {
-                            y: { duration: 2000, easing: 'easeOutElastic' },
-                            x: { duration: 1500, easing: 'easeOutExpo' }
-                        },
-                        scales: {
-                            y: {
-                                type: 'logarithmic',
-                                title: { display: true, text: 'Секунды (Лог. шкала)'}
-                            }
-                        },
-                        plugins: { legend: { display: false } }
+                        scales: { y: { type: 'logarithmic' } },
+                        plugins: { legend: { display: false }, title: {display: true, text: 'Прогноз при удлинении'} }
+                    }
+                });
+
+                // Круговой график
+                new Chart(document.getElementById('pieChart').getContext('2d'), {
+                    type: 'doughnut',
+                    data: {
+                        labels: {{ result.pie_labels|safe }},
+                        datasets: [{
+                            data: {{ result.pie_data|safe }},
+                            backgroundColor: ['#0d6efd', '#6610f2', '#6f42c1', '#d63384', '#dc3545', '#fd7e14', '#ffc107'],
+                            borderWidth: 0
+                        }]
+                    },
+                    options: {
+                        plugins: { legend: { display: false }, title: {display: true, text: 'Мощность пула'} },
+                        cutout: '60%'
                     }
                 });
             </script>
         {% else %}
-            <div class="alert alert-light border text-center h-100 d-flex align-items-center justify-content-center rounded-4 shadow-sm">
-                <span class="fs-5 text-muted fw-semibold">Укажите данные для генерации отчета</span>
+            <div class="card result-card h-100 bg-light border-0">
+                <div class="card-body d-flex align-items-center justify-content-center">
+                    <span class="text-secondary fw-semibold">Ожидание данных для генерации отчета...</span>
+                </div>
             </div>
         {% endif %}
     </div>
@@ -173,8 +181,7 @@
 <script>
     $(document).ready(function() {
         $('#id_hardware').select2({
-            placeholder: "Начните вводить название...",
-            allowClear: true,
+            placeholder: "Выберите одну или несколько видеокарт",
             width: '100%'
         });
     });
