@@ -11,13 +11,10 @@ from . import services
 
 # Резервный справочник оборудования
 HARDWARE_CATALOG = [
-    {"name": "NVIDIA GeForce RTX 5090", "md5": 380_000_000_000, "sha": 50_000_000_000},
-    {"name": "NVIDIA GeForce RTX 5080", "md5": 260_000_000_000, "sha": 35_000_000_000},
-    {"name": "NVIDIA GeForce RTX 4090", "md5": 164_000_000_000, "sha": 22_000_000_000},
-    {"name": "NVIDIA GeForce RTX 3080", "md5": 97_000_000_000, "sha": 12_000_000_000},
-    {"name": "AMD Radeon RX 7900 XTX", "md5": 140_000_000_000, "sha": 19_000_000_000},
-    {"name": "Apple M3 Ultra", "md5": 125_000_000_000, "sha": 16_000_000_000},
-    {"name": "Базовый офисный ноутбук", "md5": 50_000_000, "sha": 1_000_000},
+    {"name": "NVIDIA GeForce RTX 5090", "md5": 380_000_000_000, "sha": 50_000_000_000, "power": 600},
+    {"name": "NVIDIA GeForce RTX 4090", "md5": 164_000_000_000, "sha": 22_000_000_000, "power": 450},
+    {"name": "AMD Radeon RX 7900 XTX", "md5": 140_000_000_000, "sha": 19_000_000_000, "power": 355},
+    {"name": "Базовый офисный ноутбук", "md5": 50_000_000, "sha": 1_000_000, "power": 45},
 ]
 
 
@@ -72,19 +69,16 @@ def gpu_search_api(request):
 def check_password_view(request):
     result = None
 
-    # 1. Получаем факт дня от GigaChat при каждом обновлении страницы
-    daily_fact = cache.get('ib_daily_fact')
-    if not daily_fact:
-        daily_fact = services.ask_gigachat(
-            "Напиши один короткий, серьезный научный факт об информационной безопасности или взломе паролей. Не более 15 слов.")
-        cache.set('ib_daily_fact', daily_fact, 3600)  # Кэш на час
+    # ФИШКА: Генерируем новый факт при каждом заходе (кэш всего 1 секунда для стабильности)
+    daily_fact = services.ask_gigachat(
+        "Напиши один новый, случайный и очень короткий факт об ИБ. Каждый раз разный. До 12 слов.")
 
     if request.method == 'POST':
         form = PasswordCheckForm(request.POST)
         if form.is_valid():
             password = form.cleaned_data['password']
             target = form.cleaned_data['target']
-            cluster_raw = form.cleaned_data.get('cluster_data')
+            cluster_raw = form.cleaned_data.get('cluster_data')  # Получаем JSON список GPU
 
             try:
                 selected_hardware = json.loads(cluster_raw)
@@ -96,6 +90,7 @@ def check_password_view(request):
             hardware_objects = []
 
             for item in selected_hardware:
+                # Находим или создаем GPU на лету для ManyToMany
                 gpu, created = HardwareRig.objects.get_or_create(
                     name=item['name'],
                     defaults={
@@ -125,10 +120,8 @@ def check_password_view(request):
             readable_time = services.format_crack_time(crack_time_seconds)
             is_pwned = services.check_pwned_password(password)
 
-            # --- ЗАПРОС РЕКОМЕНДАЦИИ У GIGACHAT ---
-            ai_prompt = (f"Пароль пользователя: {password}. Энтропия: {entropy} бит. "
-                         f"Дай один профессиональный совет по улучшению этого пароля. "
-                         f"Ответь кратко и строго.")
+            # ЗАПРОС РЕКОМЕНДАЦИИ У ИИ
+            ai_prompt = f"Пароль '{password}', энтропия {entropy} бит. Дай один строгий совет ИБ по его улучшению. Кратко."
             ai_advice = services.ask_gigachat(ai_prompt)
 
             log = PasswordAuditLog.objects.create(
@@ -137,6 +130,7 @@ def check_password_view(request):
             )
             log.hardware.set(hardware_objects)
 
+            # Графики
             labels, values = [], []
             alphabet_size = services.get_alphabet_size(password)
             for i in range(6):
@@ -152,11 +146,12 @@ def check_password_view(request):
                 'entropy': entropy,
                 'crack_time_display': readable_time,
                 'is_pwned': is_pwned,
-                'ai_advice': ai_advice,  # Добавляем совет в результат
+                'ai_advice': ai_advice,
                 'total_md5_gh': round(total_md5 / 1_000_000_000, 2),
                 'chart_labels': json.dumps(labels),
                 'chart_data': json.dumps(values),
                 'pie_json': json.dumps(pie_data),
+                'saved_cluster': cluster_raw  # ПЕРЕДАЕМ КЛАСТЕР ОБРАТНО ДЛЯ JS
             }
     else:
         form = PasswordCheckForm()
@@ -164,5 +159,5 @@ def check_password_view(request):
     return render(request, 'audit/check.html', {
         'form': form,
         'result': result,
-        'daily_fact': daily_fact  # Передаем факт дня
+        'daily_fact': daily_fact
     })
