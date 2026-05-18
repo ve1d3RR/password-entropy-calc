@@ -71,6 +71,14 @@ def gpu_search_api(request):
 
 def check_password_view(request):
     result = None
+
+    # 1. Получаем факт дня от GigaChat при каждом обновлении страницы
+    daily_fact = cache.get('ib_daily_fact')
+    if not daily_fact:
+        daily_fact = services.ask_gigachat(
+            "Напиши один короткий, серьезный научный факт об информационной безопасности или взломе паролей. Не более 15 слов.")
+        cache.set('ib_daily_fact', daily_fact, 3600)  # Кэш на час
+
     if request.method == 'POST':
         form = PasswordCheckForm(request.POST)
         if form.is_valid():
@@ -87,13 +95,10 @@ def check_password_view(request):
             pie_data = []
             hardware_objects = []
 
-            # --- ИНТЕГРИРОВАННЫЙ ЦИКЛ ОБРАБОТКИ КЛАСТЕРА ---
             for item in selected_hardware:
-                # Пытаемся найти или создать видеокарту по имени из поиска
                 gpu, created = HardwareRig.objects.get_or_create(
                     name=item['name'],
                     defaults={
-                        # Если карты нет в нашей БД, ставим средние значения хэшрейта
                         'hashrate_md5': item.get('md5', 100_000_000_000),
                         'hashrate_sha256': item.get('sha', 10_000_000_000),
                         'power_watts': item.get('power', 150)
@@ -103,7 +108,6 @@ def check_password_view(request):
                 count = int(item.get('count', 1))
                 gpu_total_power = gpu.hashrate_md5 * count
                 total_md5 += gpu_total_power
-
                 hardware_objects.append(gpu)
 
                 url_name = gpu.name.lower().replace(" ", "-").replace("(", "").replace(")", "")
@@ -114,14 +118,18 @@ def check_password_view(request):
                     'url': f"https://minerstat.com/hardware/{url_name}"
                 })
 
-            if total_md5 == 0: total_md5 = 1_000_000_000  # Защита от 0
+            if total_md5 == 0: total_md5 = 1_000_000_000
 
             entropy = services.calculate_entropy(password)
             crack_time_seconds = services.calculate_crack_time(entropy, total_md5)
-
-            # Использование функции форматирования времени из services.py
             readable_time = services.format_crack_time(crack_time_seconds)
             is_pwned = services.check_pwned_password(password)
+
+            # --- ЗАПРОС РЕКОМЕНДАЦИИ У GIGACHAT ---
+            ai_prompt = (f"Пароль пользователя: {password}. Энтропия: {entropy} бит. "
+                         f"Дай один профессиональный совет по улучшению этого пароля. "
+                         f"Ответь кратко и строго.")
+            ai_advice = services.ask_gigachat(ai_prompt)
 
             log = PasswordAuditLog.objects.create(
                 target=target, password_length=len(password),
@@ -129,7 +137,6 @@ def check_password_view(request):
             )
             log.hardware.set(hardware_objects)
 
-            # Данные для линейного прогноза
             labels, values = [], []
             alphabet_size = services.get_alphabet_size(password)
             for i in range(6):
@@ -138,7 +145,6 @@ def check_password_view(request):
                 labels.append(f"+{i}")
                 values.append(services.calculate_crack_time(e, total_md5))
 
-            # Расчет процентов для каждого участника кластера
             for p in pie_data:
                 p['percent'] = round((p['raw_val'] / total_md5) * 100, 1)
 
@@ -146,6 +152,7 @@ def check_password_view(request):
                 'entropy': entropy,
                 'crack_time_display': readable_time,
                 'is_pwned': is_pwned,
+                'ai_advice': ai_advice,  # Добавляем совет в результат
                 'total_md5_gh': round(total_md5 / 1_000_000_000, 2),
                 'chart_labels': json.dumps(labels),
                 'chart_data': json.dumps(values),
@@ -154,4 +161,8 @@ def check_password_view(request):
     else:
         form = PasswordCheckForm()
 
-    return render(request, 'audit/check.html', {'form': form, 'result': result})
+    return render(request, 'audit/check.html', {
+        'form': form,
+        'result': result,
+        'daily_fact': daily_fact  # Передаем факт дня
+    })

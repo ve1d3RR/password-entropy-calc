@@ -1,7 +1,9 @@
 import math
 import hashlib
 import requests
-
+import uuid
+from django.conf import settings
+from django.core.cache import cache
 
 def get_alphabet_size(password: str) -> int:
     """
@@ -106,3 +108,64 @@ def format_crack_time(seconds: float) -> str:
             return f"{int(value)} {name}"
 
     return "Мгновенно"
+
+
+def get_gigachat_token():
+    """
+    Получает access_token для GigaChat.
+    Использует кэширование для оптимизации количества запросов.
+    """
+    token = cache.get('gigachat_token')
+    if token:
+        return token
+
+    url = "https://ngw.devices.sberbank.ru:9443/api/v2/oauth"
+    headers = {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'Accept': 'application/json',
+        'RqUID': str(uuid.uuid4()),
+        'Authorization': f'Basic {settings.GIGACHAT_AUTH_KEY}'
+    }
+    payload = {'scope': settings.GIGACHAT_SCOPE}
+
+    try:
+        response = requests.post(url, headers=headers, data=payload, verify=True)
+        if response.status_code == 200:
+            new_token = response.json().get('access_token')
+            # Кэшируем токен на 25 минут
+            cache.set('gigachat_token', new_token, 1500)
+            return new_token
+    except Exception as e:
+        print(f"Системная ошибка GigaChat Auth: {e}")
+    return None
+
+
+def ask_gigachat(prompt: str) -> str:
+    """
+    Отправляет текстовый запрос к модели GigaChat и возвращает ответ.
+    """
+    token = get_gigachat_token()
+    if not token:
+        return "Сервис рекомендаций временно недоступен."
+
+    url = "https://gigachat.devices.sberbank.ru/api/v1/chat/completions"
+    headers = {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'Authorization': f'Bearer {token}'
+    }
+
+    payload = {
+        "model": "GigaChat",
+        "messages": [{"role": "user", "content": prompt}],
+        "temperature": 0.7,
+        "max_tokens": 500
+    }
+
+    try:
+        response = requests.post(url, headers=headers, json=payload, verify=True)
+        if response.status_code == 200:
+            return response.json()['choices'][0]['message']['content']
+    except Exception as e:
+        print(f"Системная ошибка GigaChat Query: {e}")
+    return "Не удалось получить ответ от нейросети."
