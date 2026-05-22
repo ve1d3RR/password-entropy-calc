@@ -130,4 +130,4 @@ STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 MINERSTAT_API_KEY = os.getenv('MINERSTAT_API_KEY')
 GIGACHAT_AUTH_KEY = os.getenv('GIGACHAT_AUTH_KEY')
 GIGACHAT_SCOPE = os.getenv('GIGACHAT_SCOPE')
-ALLOWED_HOSTS = ['ваш-логин.pythonanywhere.com', '127.0.0.1', 'localhost']
+ALLOWED_HOSTS = ['mukhamatshineldar.pythonanywhere.com', '127.0.0.1', 'localhost']
