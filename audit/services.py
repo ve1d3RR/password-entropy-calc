@@ -67,8 +67,8 @@ def check_pwned_password(password: str) -> bool:
     url = f"https://api.pwnedpasswords.com/range/{prefix}"
 
     try:
-        # Устанавливаем таймаут, чтобы сайт не завис, если API недоступно
-        response = requests.get(url, timeout=5)
+        # Устанавливаем таймаут 3 секунды, чтобы страница не висла на PythonAnywhere
+        response = requests.get(url, timeout=3)
 
         if response.status_code == 200:
             # API возвращает сотни хэшей, начинающихся на наш префикс.
@@ -76,9 +76,9 @@ def check_pwned_password(password: str) -> bool:
             hashes = (line.split(':')[0] for line in response.text.splitlines())
             if suffix in hashes:
                 return True  # Пароль скомпрометирован!
-    except requests.RequestException as e:
-        # Если API упало или нет интернета, просто игнорируем, чтобы не ломать сайт
-        print(f"Ошибка API: {e}")
+    except Exception as e:
+        # Если API недоступно по сети (ошибка 443/403), просто игнорируем
+        print(f"Внешний сервис утечек недоступен: {e}")
 
     return False  # Пароль безопасен (или не найден)
 
@@ -129,14 +129,16 @@ def get_gigachat_token():
     payload = {'scope': settings.GIGACHAT_SCOPE}
 
     try:
-        response = requests.post(url, headers=headers, data=payload, verify=True)
+        # Добавлен таймаут 3 сек для защиты от зависаний на сервере
+        response = requests.post(url, headers=headers, data=payload, verify=True, timeout=3)
         if response.status_code == 200:
             new_token = response.json().get('access_token')
             # Кэшируем токен на 25 минут
             cache.set('gigachat_token', new_token, 1500)
             return new_token
     except Exception as e:
-        print(f"Системная ошибка GigaChat Auth: {e}")
+        # На бесплатном PythonAnywhere здесь будет Connection Error (белый список)
+        print(f"Ошибка авторизации GigaChat (вероятно, блокировка хостинга): {e}")
     return None
 
 
@@ -146,7 +148,7 @@ def ask_gigachat(prompt: str) -> str:
     """
     token = get_gigachat_token()
     if not token:
-        return "Сервис рекомендаций временно недоступен."
+        return "ИИ-консультант временно недоступен в облачной версии (ограничения бесплатного хостинга)."
 
     url = "https://gigachat.devices.sberbank.ru/api/v1/chat/completions"
     headers = {
@@ -163,9 +165,10 @@ def ask_gigachat(prompt: str) -> str:
     }
 
     try:
-        response = requests.post(url, headers=headers, json=payload, verify=True)
+        # Добавлен таймаут 5 сек
+        response = requests.post(url, headers=headers, json=payload, verify=True, timeout=5)
         if response.status_code == 200:
             return response.json()['choices'][0]['message']['content']
     except Exception as e:
-        print(f"Системная ошибка GigaChat Query: {e}")
-    return "Не удалось получить ответ от нейросети."
+        print(f"Ошибка запроса к GigaChat: {e}")
+    return "Не удалось получить рекомендации от нейросети (Network Error)."
