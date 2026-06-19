@@ -12,7 +12,7 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 
 from pathlib import Path
 import os
-from dotenv import load_dotenv  # Импортируем загрузчик переменных окружения
+from dotenv import load_dotenv
 
 # Загружаем переменные из файла .env
 load_dotenv()
@@ -25,15 +25,13 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-# Теперь берем ключ из переменной окружения
 SECRET_KEY = os.getenv('SECRET_KEY', 'default-unsafe-key-if-env-not-found')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-# Проверяем строку в .env: если там True — ставим True, иначе False
 DEBUG = os.getenv('DEBUG', 'False') == 'True'
 
-# Добавьте сюда домен PythonAnywhere после деплоя
-ALLOWED_HOSTS = ['127.0.0.1', 'localhost']
+# Хосты, разрешенные для работы приложения
+ALLOWED_HOSTS = ['mukhamatshineldar.pythonanywhere.com', '127.0.0.1', 'localhost', '*']
 
 
 # Application definition
@@ -126,8 +124,7 @@ USE_TZ = True
 STATIC_URL = 'static/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 
-# Конфиденциальные ключи API (теперь в безопасности)
+# Конфиденциальные ключи API из файла .env
 MINERSTAT_API_KEY = os.getenv('MINERSTAT_API_KEY')
 GIGACHAT_AUTH_KEY = os.getenv('GIGACHAT_AUTH_KEY')
 GIGACHAT_SCOPE = os.getenv('GIGACHAT_SCOPE')
-ALLOWED_HOSTS = ['mukhamatshineldar.pythonanywhere.com', '127.0.0.1', 'localhost']
